@@ -1,6 +1,9 @@
 ﻿using BepInEx;
 using BepInEx.Configuration;
 using HarmonyLib;
+using System.Collections.Generic;
+using System.Security.Cryptography;
+using UnityEngine;
 
 namespace Backseating_Begone
 {
@@ -26,10 +29,30 @@ namespace Backseating_Begone
     public class Byebye
     {
         [HarmonyPrefix]
-        [HarmonyPatch(typeof(MatchManager), "DoEmoteCard")]
+        [HarmonyPatch(typeof(MatchManager), "NET_SendEmoteCard")]
         public static bool DoEmoteCardPrefix()
         {
             if (Plugin.medsEmotesCards.Value)
+                return false;
+            return true;
+        }
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(MatchManager), "NET_EmoteTarget")]
+        public static bool EmoteTargetPrefix(ref MatchManager __instance, string _id, byte _action)
+        {
+            if (!((int)_action == 2 || (int)_action == 3))
+                return true;
+            bool TargetAlly = false;
+            Hero[] medsTeamHero = Traverse.Create(__instance).Field("TeamHero").GetValue<Hero[]>();
+            for (int index = 0; index < medsTeamHero.Length; ++index)
+            {
+                if (medsTeamHero[index] != null && medsTeamHero[index].Id == _id && medsTeamHero[index].Alive)
+                {
+                    TargetAlly = true;
+                    break;
+                }
+            }
+            if ((TargetAlly && Plugin.medsEmotesTargetAllies.Value) || (!TargetAlly && Plugin.medsEmotesTargetEnemies.Value))
                 return false;
             return true;
         }
